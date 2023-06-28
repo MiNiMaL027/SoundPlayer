@@ -1,0 +1,21 @@
+﻿@model Domain.Models.NoDbModels.RegisterModel;
+
+@{
+    ViewData["Title"] = "Register";
+    Layout = "~/Views/Shared/_LoginLayout.cshtml";
+}
+
+<h1>Registration</h1>
+
+<h4>Happy registration</h4>
+<hr />
+<form method="post">
+    <input class="form-control" placeholder="Email" type="text" name="Email" /><br />
+    <input class="form-control" placeholder="Name" type="text" name="Name" /><br />
+    <input class="form-control" placeholder="Password" type="text" name="Password" /><br />
+    <input class="form-control" placeholder="ConfirmedPassword" type="text" name="ConfirmedPassword" /><br />
+    <p>
+        <input class="btn btn-light" type="submit" value="Register" />
+    </p>
+</form>
+

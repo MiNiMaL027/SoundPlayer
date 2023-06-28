@@ -1,0 +1,294 @@
+﻿@using System.Security.Claims;
+@{
+    ViewData["Title"] = "MySounds";
+    Layout = "~/Views/Shared/_HomeLayout.cshtml";
+}
+
+<style>
+    .trackContainer {
+        display: flex;
+        align-items: center;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+
+    .trackInfo {
+        display: flex;
+        align-items: center;
+        flex-grow: 1;
+    }
+
+    .trackName {
+        margin-right: 10px;
+        font-weight: bold;
+    }
+
+    .deleteButton {
+        margin-left: 10px;
+        background-color: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .deleteButton i {
+        color: red;
+    }
+
+    #overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    #uploadForm {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+    }
+
+    #uploadForm input[type="text"] {
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    .trackSeparator {
+        width: 100%;
+        height: 1px;
+        background-color: #ccc;
+        margin: 10px 0;
+    }
+
+    .rating {
+    display: flex;
+    align-items: center;
+    margin-right: 10px;
+}
+
+.ratingIcon {
+    margin-right: 5px;
+}
+
+.likeCount,
+.dislikeCount {
+    margin-right: 5px;
+    font-weight: bold;
+}
+</style>
+
+<div id="header">
+    <div class="logo">SoundPlayer</div>
+    <div class="menu">
+        <a href="/Home/HomePage">Home</a>
+        <a href="/Home/MySoundsPage">@User.FindFirst(ClaimTypes.Name).Value</a>
+        <a href="/Home/MyFavoriteSoundsPage">Favorite</a>
+        <a href="#" id="addTrackButton" onclick="openUploadForm()">Add Sound</a>
+    </div>
+</div>
+
+<div id="overlay">
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="text" id="trackName" name="name" placeholder="Sound Name">
+        <br />
+        <input type="file" id="audioFile" name="soundData" accept=".mp3, .wav">
+        <button type="button" onclick="uploadAudio()">Save</button>
+        <button type="button" onclick="closeUploadForm()">Close</button>
+    </form>
+</div>
+
+<div id="trackList">
+    <!-- тут будуть всі треки користувача -->
+</div> 
+
+<script>
+    var userId = '@User.FindFirst(ClaimTypes.NameIdentifier).Value';
+
+    $(document).ready(function () {
+        loadTracks();
+    });
+
+    function openUploadForm() {
+        document.getElementById("overlay").style.display = "flex";
+    }
+
+    function closeUploadForm() {
+        document.getElementById("overlay").style.display = "none";
+    }
+
+    $(document).ready(function () {
+        loadTracks();
+    });
+
+    function uploadAudio() {
+        var fileInput = document.getElementById('audioFile');
+        var file = fileInput.files[0];
+
+        var trackNameInput = document.getElementById('trackName');
+        var trackName = trackNameInput.value;
+
+        var formData = new FormData();
+        formData.append('soundData', file);
+        formData.append('name', trackName);
+
+        $.ajax({
+            url: '/Upload/UploadAudio',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function (response) {
+                console.log('file uploaded successfully');
+                location.reload();
+                closeUploadForm();
+            },
+            error: function (xhr, status, error) {
+                console.log('An error occurred while loading the track');
+            }
+        });
+    }
+
+    function loadTracks() {
+        $.ajax({
+            url: '/Home/GetMySounds',
+            type: 'GET',
+            success: function (response) {
+                $('#trackList').empty();
+
+                for (var i = 0; i < response.length; i++) {
+                    var track = response[i];
+                    var audioUrl = '/Upload/GetAudio?trackId=' + track.id;
+                    var audioElement = '<div class="audioContainer">' +
+                        '<audio controls><source src="' + audioUrl + '" type="audio/mpeg"></audio>' +
+                        '</div>';
+                    var trackName = '<div class="trackName mb-0" onclick="editTrackName(' + track.id + ', this)">' + track.name + '</div>';
+                    var deleteButton = '';
+                    var likeCountSpan = '<span class="likeCount" id="likeCount_' + track.id + '">0</span>';
+                    var dislikeCountSpan = '<span class="dislikeCount" id="dislikeCount_' + track.id + '">0</span>';
+                    var likeIcon = '<i class="far fa-thumbs-up"></i>';
+                    var dislikeIcon = '<i class="far fa-thumbs-down"></i>';
+                    var favoriteUserCountSpan = '<span class="favoriteUserCount" id="favoriteUserCount_' + track.id + '">0</span>';
+
+                    // Перевіряємо, чи належить трек поточному користувачу
+                    if (track.userId === userId) {
+                        deleteButton = '<button class="deleteButton" onclick="deleteTrack(' + track.id + ')"><i class="fas fa-trash"></i></button>';
+                    }
+
+                    var trackContainer = '<div class="trackContainer">' +
+                        '<div class="trackInfo">' +
+                        trackName + deleteButton +                      
+                        '</div>' +                    
+                        '<div class="ratings">' +                     
+                        '<div class="rating">' +
+                        '<span class="ratingIcon">' + likeIcon + '</span>' +
+                        likeCountSpan +
+                        '</div>' +
+                        '<div class="rating">' +
+                        '<span class="ratingIcon">' + dislikeIcon + '</span>' +
+                        dislikeCountSpan +
+                        '</div>' +
+                        '</div>' +
+                        audioElement +
+                        '<div class="favoriteUsers">' +
+                        '<span class="favoriteUserIcon"><i class="fas fa-star"></i></span>' +
+                        favoriteUserCountSpan +
+                        '</div>' +
+                        '</div>';
+
+
+                    $('#trackList').append(trackContainer);
+
+                    getLikeCount(track.id);
+                    getDislikeCount(track.id);
+                    getFavoriteUserCount(track.id);
+                }
+             
+            },
+            error: function (xhr, status, error) {
+                console.log('An error occurred while retrieving the tracks');
+            }
+        });
+    }
+
+    function editTrackName(trackId, element) {
+        // Отримуємо поточе значення назви трека
+        var currentTrackName = $(element).text();
+
+        // Створюємо input елемент для редагування
+        var inputElement = $('<input type="text" class="editTrackInput">');
+        inputElement.val(currentTrackName);
+
+        // Замінюємо текстовий елемент на input елемент
+        $(element).replaceWith(inputElement);
+
+        // Звертаємо фокус на input елемент
+        inputElement.focus();
+
+        // Обробник події при втраті фокусу з input елементу
+        inputElement.blur(function () {
+            var newTrackName = inputElement.val();
+            inputElement.replaceWith('<div class="trackName" onclick="editTrackName(' + trackId + ', this)">' + newTrackName + '</div>');
+
+            // Викликаємо функцію для збереження зміненого імені трека
+            saveTrackName(trackId, newTrackName);
+        });
+
+        // Обробник події при натисканні Enter в input елементі
+        inputElement.keypress(function (event) {
+            if (event.which === 13) {
+                inputElement.blur();
+            }
+        });
+    }
+
+    function saveTrackName(trackId, newTrackName) {
+        $.ajax({
+            url: '/Home/UpdateSoundName',
+            type: 'POST',
+            data: { trackId: trackId, newTrackName: newTrackName },
+            success: function (response) {
+                console.log('The title of the track has been successfully updated');
+            },
+            error: function (xhr, status, error) {
+                console.log('An error occurred while updating the track title');
+            }
+        });
+    }
+
+    function deleteTrack(trackId) {
+        $.ajax({
+            url: '/Home/DeleteSound',
+            type: 'POST',
+            data: { trackId: trackId },
+            success: function (response) {
+                console.log('Track was delete');
+                loadTracks(); // Обновити список треків після видалення
+            },
+            error: function (xhr, status, error) {
+                console.log('An error occurred while deleting the track');
+            }
+        });
+    }
+
+    function getFavoriteUserCount(soundId) {
+        $.ajax({
+            url: '/FavoriteSounds/GetCountFavoritsSoundUsers',
+            type: 'GET',
+            data: { soundId: soundId },
+            success: function (response) {
+                $('#favoriteUserCount_' + soundId).text(response);
+            },
+            error: function (xhr, status, error) {
+                console.log('An error occurred while retrieving the favorite user count');
+            }
+        });
+    }
+</script>

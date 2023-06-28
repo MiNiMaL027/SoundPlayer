@@ -1,0 +1,346 @@
+﻿@using System.Security.Claims;
+
+@{
+    ViewData["Title"] = "Home";
+    Layout = "~/Views/Shared/_HomeLayout.cshtml";
+}
+
+<style>
+    #trackList {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between; /* Вирівнювання по обидва боки */
+    }
+
+    .trackColumn {
+        width: calc(50% - 10px); /* Ширина стовпців */
+    }
+
+    .trackRow {
+        margin: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .trackInfo {
+        display: flex;
+        align-items: center;
+    }
+
+    .trackName {
+        margin-right: 10px;
+        font-weight: bold;
+    }
+
+    .deleteButton {
+        margin-left: 10px;
+    }
+
+    .likeCount {
+        margin-right: 10px;
+    }
+
+    .dislikeCount {
+        margin-left: 10px;
+    }
+
+    #searchInput {
+        margin-bottom: 10px;
+    }
+
+    #loadMoreContainer {
+        display: flex;
+        justify-content: center;
+    }
+
+    #loadMoreButton {
+        margin-top: 10px;
+    }
+
+    .active-like {
+        color: blue;
+    }
+
+    .active-dislike {
+        color: red;
+    }
+
+    .star {
+      color: #ffd700; /* Колір світиться золотистий */
+      animation: shine 1s infinite; /* Анімація світіння */
+    }
+
+    @@keyframes shine {
+      0% {
+        opacity: 0.5;
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0.5;
+      }
+    }
+
+   
+</style>
+
+<input type="text" id="searchInput" placeholder="Search by track name">
+<button onclick="searchTracks()">Search</button>
+
+<select id="trackSelector" onchange="changeTrackSelection()">
+    <option value="best">Best Tracks</option>
+    <option value="newest">Newest Tracks</option>
+</select>
+
+<div id="trackList">
+    <div class="trackColumn" id="trackListColumn1"></div>
+    <div class="trackColumn" id="trackListColumn2"></div>
+</div>
+
+<div id="loadMoreContainer">
+    <button id="loadMoreButton" onclick="loadMoreTracks()" style="display: none;">
+        <i class="fas fa-chevron-down"></i>
+        Load More
+    </button>
+
+    <i id="loadingIcon" class="fas fa-spinner fa-spin" style="display: none;"></i>
+</div>
+
+<script>
+    var userId = '@User.FindFirst(ClaimTypes.NameIdentifier).Value';
+    var allTracks = []; // Зберігає всі треки
+    var displayedTracks = []; // Зберігає відображені треки
+    var loadedTracks = 0; // Кількість завантажених треків
+    var pageSize = 8; // Розмір однієї сторінки
+    var totalTracks = 0; // Загальна кількість треків
+    var currentPage = 1;
+
+    $(document).ready(function () {
+        getTotalTracksCount();
+
+        loadTracks();  
+
+    });
+
+    function getTotalTracksCount() {
+        $.ajax({
+            url: '/Home/GetSoundsCount',
+            type: 'GET',
+            success: function (response) {
+                totalTracks = response;
+            },
+            error: function (xhr, status, error) {
+                console.log('An error occurred while retrieving the total track count');
+            }
+        });
+    }
+
+    function changeTrackSelection() {
+        currentPage = 1; // Скидання поточної сторінки
+        loadedTracks = 0; // Скидання кількості завантажених треків
+        displayedTracks = []; // Очищаємо відображені треки
+
+        $('#loadMoreButton').hide();
+        $('#loadingIcon').show();
+
+        // Очищення списку треків
+        $('#trackListColumn1').empty();
+        $('#trackListColumn2').empty();
+
+        loadTracks();
+    }
+
+    function loadTracks() {
+        var trackSelector = $('#trackSelector').val();
+
+        var url;
+        switch (trackSelector) {
+            case 'best':
+                url = '/Home/GetBestSounds';
+                break;
+            case 'newest':
+                url = '/Home/GetSounds';
+                break;
+            default:
+                url = '/Home/GetBestSounds';
+                break;
+        }
+        $.ajax({
+            url: url,
+            type: 'GET',
+            data: { page: currentPage, pageSize: pageSize },
+            success: function (response) {
+                allTracks = response;
+
+                //// Сортування треків за іменем
+                //allTracks.sort(function (a, b) {
+                //    var nameA = a.name.toUpperCase();
+                //    var nameB = b.name.toUpperCase();
+                //    return nameA.localeCompare(nameB);
+                //});             
+
+                displayNextTracks();
+            },
+            error: function (xhr, status, error) {
+                console.log('An error occurred while retrieving the tracks');
+            }
+        });
+    }
+
+    function displayNextTracks() {
+        var tracksToDisplay = allTracks.slice(loadedTracks, loadedTracks + pageSize);
+
+        $('#loadingIcon').hide();
+
+        for (var i = 0; i < tracksToDisplay.length; i++) {
+            var track = tracksToDisplay[i];
+            var audioUrl = '/Upload/GetAudio?trackId=' + track.id;
+            var audioElement = '<audio controls><source src="' + audioUrl + '" type="audio/mpeg"></audio>';
+            var trackName = '<div class="trackName" onclick="editTrackName(' + track.id + ', this)">' + track.name + '</div>';
+            var deleteButton = '';
+
+            // Перевіряємо, чи належить трек поточному користувачу
+            if (track.userId === userId) {
+                deleteButton = '<button class="deleteButton" onclick="deleteTrack(' + track.id + ')"><i class="fas fa-trash"></i></button>';
+            }
+
+            var favoriteButton = '<button id="favoriteButton_' + track.id + '" class="favoriteButton" onclick="toggleFavorite(' + track.id + ')"><i class="far fa-star"></i></button>';
+            var likeButton = '<button id="likeButton_' + track.id + '" class="likeButton" onclick="toggleLike(' + track.id + ')"><i class="far fa-thumbs-up"></i></button>';
+            var dislikeButton = '<button id="dislikeButton_'+ track.id +'" class="dislikeButton" onclick="toggleDislike(' + track.id + ')"><i class="far fa-thumbs-down"></i></button>';
+            var likeCountSpan = '<span class="likeCount" id="likeCount_' + track.id + '">0</span>';
+            var dislikeCountSpan = '<span class="dislikeCount" id="dislikeCount_' + track.id + '">0</span>';
+
+            var trackRow = '<div class="trackRow"><div class="trackInfo">' + trackName + deleteButton + '</div>' + audioElement + '<div>' + likeButton + likeCountSpan + dislikeButton + dislikeCountSpan + favoriteButton + '</div>' + '</div>' + '<br />';
+
+            if (i % 2 === 0) {
+                $('#trackListColumn1').append(trackRow);
+            } else {
+                $('#trackListColumn2').append(trackRow);
+            }
+
+
+            // Отримати кількість лайків та дизлайків для кожного треку
+            getLikeCount(track.id);
+            getDislikeCount(track.id);
+
+            checkUserVote(track.id);
+
+            checkFavoriteSound(track.id);
+        }
+
+        loadedTracks += tracksToDisplay.length;
+        displayedTracks = displayedTracks.concat(tracksToDisplay);
+
+        if (loadedTracks < totalTracks) {
+            $('#loadMoreButton').show();
+        }
+
+        currentPage++;
+    }
+
+    function editTrackName(trackId, element) {
+        var currentTrackName = $(element).text();
+        var inputElement = $('<input type="text" class="editTrackInput">');
+        inputElement.val(currentTrackName);
+
+        $(element).replaceWith(inputElement);
+        inputElement.focus();
+
+        inputElement.blur(function () {
+            var newTrackName = inputElement.val();
+            inputElement.replaceWith('<div class="trackName" onclick="editTrackName(' + trackId + ', this)">' + newTrackName + '</div>');
+
+            saveTrackName(trackId, newTrackName);
+        });
+
+        inputElement.keypress(function (event) {
+            if (event.which === 13) {
+                inputElement.blur();
+            }
+        });
+    }
+
+    function saveTrackName(trackId, newTrackName) {
+        $.ajax({
+            url: '/Home/UpdateSoundName',
+            type: 'POST',
+            data: { trackId: trackId, newTrackName: newTrackName },
+            success: function (response) {
+                console.log('The title of the track has been successfully updated');
+            },
+            error: function (xhr, status, error) {
+                console.log('An error occurred while updating the track title');
+            }
+        });
+    }
+
+    function deleteTrack(trackId) {
+        $.ajax({
+            url: '/Home/DeleteSound',
+            type: 'POST',
+            data: { trackId: trackId },
+            success: function (response) {
+                console.log('The track has been successfully deleted');
+                loadTracks();
+            },
+            error: function (xhr, status, error) {
+                console.log('An error occurred while deleting the track');
+            }
+        });
+    }
+
+    function searchTracks() {
+        var searchText = $('#searchInput').val().toLowerCase();
+
+        $.ajax({
+            url: '/Home/SearchSoundsByName',
+            type: 'GET',
+            data: { searchText: searchText },
+            success: function (response) {
+                allTracks = response;
+                totalTracks = allTracks.length;
+
+                // Сортування треків за іменем
+                allTracks.sort(function (a, b) {
+                    var nameA = a.name.toUpperCase();
+                    var nameB = b.name.toUpperCase();
+                    return nameA.localeCompare(nameB);
+                });
+
+                loadedTracks = 0; // Скидання кількості завантажених треків
+                currentPage = 1; // Скидання поточної сторінки
+
+                // Очистити відображений список треків
+                $('#trackListColumn1').empty();
+                $('#trackListColumn2').empty();
+
+                displayNextTracks();
+            },
+            error: function (xhr, status, error) {
+                console.log('An error occurred while searching for tracks');
+            }
+        });
+    }
+
+    function loadMoreTracks() {
+        $('#loadMoreButton').hide();
+        $('#loadingIcon').show();
+        $.ajax({
+            url: '/Home/GetBestSounds',
+            type: 'GET',
+            data: { page: currentPage, pageSize: pageSize },
+            success: function (response) {
+                allTracks = allTracks.concat(response);
+                displayNextTracks();
+            },
+            error: function (xhr, status, error) {
+                console.log('An error occurred while retrieving more tracks');
+            }
+        });
+    }
+</script>
+
+

@@ -1,0 +1,29 @@
+﻿@model Domain.Models.NoDbModels.LoginModel;
+
+@{
+    ViewData["Title"] = "Login";
+    Layout = "~/Views/Shared/_LoginLayout.cshtml";
+}
+
+<h1>Login</h1>
+
+<h4>Welcome</h4>
+
+@if(ViewBag.ErrorMessage != null)
+{
+    <div class="alert alert-danger">@ViewBag.ErrorMessage</div>
+}
+
+<form method ="post" action="/Login/Login">
+    <p>
+        <input class="form-control" placeholder="Email" type="text" name="Email" required />
+    </p>
+    <p>
+        <input class="form-control" placeholder="Password" type="text" name="Password" required />
+    </p>
+    <p>
+        <input class="btn btn-light" type="submit" value="Login" />
+    </p>
+</form>
+
+

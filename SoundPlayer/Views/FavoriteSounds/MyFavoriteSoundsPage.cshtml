@@ -1,0 +1,97 @@
+﻿@using System.Security.Claims;
+@using Domain.Models;
+
+@model List<Sound>;
+
+@{
+    ViewData["Title"] = "Favorites";
+    Layout = "~/Views/Shared/_HomeLayout.cshtml";
+}
+<style>
+    .trackContainer {
+        display: flex;
+        align-items: center;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+
+    .trackName {
+        margin-right: 10px;
+    }
+</style>
+
+<div id="header">
+    <div class="logo">SoundPlayer</div>
+    <div class="menu">
+        <a href="/Home/HomePage">Home</a>
+        <a href="/Home/MySoundsPage">@User.FindFirst(ClaimTypes.Name).Value</a>
+        <a href="/Home/MyFavoriteSoundsPage">Favorite</a>
+    </div>
+</div>
+
+<div id="trackList">
+    @foreach (var track in Model)
+    {
+        var audioUrl = "/Upload/GetAudio?trackId=" + track.Id;
+        <div class="trackContainer">
+            <audio id="@("audio" + track.Id)" controls>
+                <source src="@audioUrl" type="audio/mpeg">
+            </audio>
+            <p class="trackName">@track.Name</p>
+        </div>
+    }
+</div>
+
+<button id="loadMoreButton" style="display: none;" onclick="loadMoreFavoriteTracks()">Load More</button>
+
+<script>
+    // Trigger loading of more tracks when scrolling to the bottom of the page
+    $(window).scroll(function () {
+        if ($(window).scrollTop() + $(window).height() >= $(document).height()) {
+            loadMoreFavoriteTracks();
+        }
+    });
+
+    var allFavoriteTracks = @Model
+    var displayedFavoriteTracks = [];
+    var loadedFavoriteTracks = 0;
+    var pageSize = 4;
+    var totalFavoriteTracks = @Model.Count;
+    var currentPage = 1;
+
+    $(document).ready(function () {
+        loadFavoriteTracks();
+    });
+
+    function loadFavoriteTracks() {
+        allFavoriteTracks = @Model;
+        displayNextFavoriteTracks();
+    }
+
+    function displayNextFavoriteTracks() {
+        var favoriteTracksToDisplay = allFavoriteTracks.slice(loadedFavoriteTracks, loadedFavoriteTracks + pageSize);
+
+        for (var i = 0; i < favoriteTracksToDisplay.length; i++) {
+            var track = favoriteTracksToDisplay[i];
+            var audioUrl = '/Upload/GetAudio?trackId=' + track.Id;
+            var audioElement = '<audio controls><source src="' + audioUrl + '" type="audio/mpeg"></audio>';
+
+            $('#trackList').append('<div class="trackContainer">' + audioElement + '<p class="trackName">' + track.Name + '</p></div>');
+        }
+
+        loadedFavoriteTracks += favoriteTracksToDisplay.length;
+
+        if (loadedFavoriteTracks < totalFavoriteTracks) {
+            $('#loadMoreButton').show();
+        } else {
+            $('#loadMoreButton').hide();
+        }
+    }
+
+    function loadMoreFavoriteTracks() {
+        currentPage++;
+        loadFavoriteTracks();
+    }
+</script>

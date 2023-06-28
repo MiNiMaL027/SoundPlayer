@@ -1,0 +1,219 @@
+﻿@using System.Security.Claims;
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>@ViewBag.Title</title>
+
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+
+    <script src="~/js/likeOrDislike.js"></script>
+    <script src="~/js/favorite.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
+    <style>
+        #header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #f8f9fa;
+            padding: 10px;
+            z-index: 999;
+        }
+
+        #header .logo {
+            font-weight: bold;
+            font-size: 24px;
+            color: #333;
+            margin-right: 20px;
+        }
+
+        #header .menu {
+            display: inline-block;
+            margin-right: 20px;
+        }
+
+        #header .menu a {
+            margin-right: 10px;
+            color: #333;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        #content {
+            padding-top: 60px;
+        }
+
+        #chatContainer {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            transition: height 0.3s ease-in-out;
+        }
+
+        .collapsed {
+            height: 30px;
+            overflow: hidden;
+        }
+
+        #chatHeader {
+            padding: 10px;
+            background-color: #ddd;
+        }
+
+        #chatMessages {
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        #chatInputContainer {
+            padding: 10px;
+            background-color: #eee;
+        }
+
+        #chatInput {
+            width: 100%;
+            padding: 5px;
+        }
+
+        #sendButton {
+            margin-top: 5px;
+        }
+
+        #toggleChatButton {
+            padding: 5px;
+        }
+
+        #toggleChatButton:focus {
+            outline: none;
+        }
+
+        .toggle-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 5px;
+            background-color: #f0f0f0;
+            border: none;
+            cursor: pointer;
+        }
+
+        .icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+        }
+
+        .expand-icon:before {
+            content: "+";
+            font-size: 14px;
+        }
+
+        .collapse-icon:before {
+            content: "-";
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <div class="logo">SoundPlayer</div>
+        <div class="menu">
+            <a href="/Home/HomePage">Home</a>
+            <a href="/Home/MySoundsPage">@User.FindFirst(ClaimTypes.Name).Value</a>
+            <a href="#">Contact</a>
+        </div>
+    </div>
+    <div id="content">
+        @RenderBody()
+    </div>
+    <div id="chatContainer" class="collapsed">
+        <div id="chatHeader">
+            <button id="toggleChatButton" class="toggle-button">
+                <span class="icon expand-icon"></span>
+                <span class="icon collapse-icon"></span>
+            </button>
+        </div>
+        <div id="chatMessages"></div>
+        <div id="chatInputContainer">
+            <input type="text" id="chatInput" placeholder="Write message..." />
+            <button id="sendButton">Send</button>
+        </div>
+    </div>
+
+    <script src="~/lib/microsoft/signalr/dist/browser/signalr.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            $('#toggleChatButton').click(function () {
+                $('#chatContainer').toggleClass('collapsed');
+                $(this).toggleClass('expanded');
+                if ($('#chatContainer').hasClass('collapsed')) {
+                    $('#chatMessages').scrollTop(0);
+                }
+            });
+
+            $('#sendButton').click(function () {
+                var message = $('#chatInput').val();
+                if (message.trim() !== '') {
+                    var username = "@User.FindFirst(ClaimTypes.Name).Value";
+                    var fullMessage = username + ': ' + message;
+                    sendMessage(fullMessage);
+                    $('#chatInput').val('');
+                    if ($('#chatContainer').hasClass('collapsed')) {
+                        $('#chatMessages').scrollTop(0);
+                    }
+                }
+            });
+        });
+
+        // JavaScript для чату
+        // Підключення до SignalR сервера
+        var connection = new signalR.HubConnectionBuilder().withUrl("/Hubs/СhatHub").build();
+
+        // Функція для обробки нових повідомлень
+        function addMessageToChat(message) {
+            var chatMessages = document.getElementById("chatMessages");
+            var messageElement = document.createElement("div");
+            messageElement.textContent = message;
+            chatMessages.appendChild(messageElement);
+        }
+
+        // Отримання повідомлення від сервера SignalR
+        connection.on("ReceiveMessage", function (message) {
+            addMessageToChat(message);
+        });
+
+        // Відправка повідомлення на сервер SignalR
+        function sendMessage(message) {
+            connection.invoke("SendMessage", message);
+        }
+
+        // Підключення до сервера SignalR
+        connection.start().then(function () {
+            // Обробка натискання на кнопку "Надіслати"
+            var sendButton = document.getElementById("sendButton");
+            sendButton.addEventListener("click", function () {
+                var chatInput = document.getElementById("chatInput");
+                var message = chatInput.value;
+                if (message.trim() !== '') {
+                    var username = "@User.FindFirst(ClaimTypes.Name).Value";
+                    var fullMessage = username + ': ' + message;
+                    sendMessage(fullMessage);
+                    chatInput.value = "";
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
