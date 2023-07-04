@@ -1,6 +1,4 @@
-﻿using Azure;
-using Domain.Models;
-using Microsoft.AspNetCore.Mvc;
+﻿using Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Interfaces;
 using Services.Interfaces;
@@ -13,10 +11,13 @@ namespace Services.Services
 
         private readonly IAuthorizeService _authorizeService;
 
-        public SoundService(ISoundRepository soundRepository, IAuthorizeService authorizeService)
+        private readonly ICacheSoundsService _cacheService;
+
+        public SoundService(ISoundRepository soundRepository, IAuthorizeService authorizeService, ICacheSoundsService cacheService)
         {
             _soundRepository = soundRepository;
             _authorizeService = authorizeService;
+            _cacheService = cacheService;
         }
 
         public async Task<List<Sound>> GetAllSounds()
@@ -38,12 +39,16 @@ namespace Services.Services
         {
             await _authorizeService.AuthorizeUser(id);
 
+            _cacheService.ClearCache();
+
             return await _soundRepository.DeleteSound(id);
         }
 
         public async Task<bool> UpdateSoundName(int id,string name)
-        {
+        {           
             await _authorizeService.AuthorizeUser(id);
+
+            _cacheService.ClearCache();
 
             return await _soundRepository.UpdateSoundName(id, name);
         }
@@ -55,18 +60,26 @@ namespace Services.Services
 
         public async Task<List<Sound>> GetPageSounds(int page, int pageSize)
         {
-            var startIndex = (page - 1) * pageSize;
+            if (page > 1)
+            {
+                var startIndex = (page - 1) * pageSize;
 
-            return await _soundRepository.GetPageSounds(startIndex, pageSize).ToListAsync();
+                return await _soundRepository.GetPageSounds(startIndex, pageSize).ToListAsync();
+            }
+
+            return await _cacheService.GetPageNewSounds(page, pageSize);         
         }
 
         public async Task<List<Sound>> GetBestPageSounds(int page, int pageSize)
         {
-            var startIndex = (page - 1) * pageSize;
-            
-            var items = await _soundRepository.GetBestPageSounds(startIndex, pageSize).ToListAsync();
+            if (page > 1)
+            {
+                var startIndex = (page - 1) * pageSize;
 
-            return items;
+                return await _soundRepository.GetPageSounds(startIndex, pageSize).ToListAsync();
+            }
+
+            return await _cacheService.GetPageBestSounds(page, pageSize);
         }
 
         public async Task<int> GetSoundsCount()

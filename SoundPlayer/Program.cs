@@ -34,6 +34,7 @@ namespace SoundPlayer
             builder.Services.AddScoped<IUploadSoundService, UploadSoundService>();
             builder.Services.AddScoped<IAuthorizeService, AuthorizeService>();
             builder.Services.AddScoped<IFavoriteSoundsService, FavoriteSoundsService>();
+            builder.Services.AddScoped<ICacheSoundsService, CacheSoundsService>();
 
             builder.Services.AddScoped<ISoundRepository, SoundRepository>();
             builder.Services.AddScoped<ILikeOrDislikeRepository, LikeOrDislikeRepository>();
